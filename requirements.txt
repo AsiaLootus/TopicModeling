@@ -1,0 +1,11 @@
+bertopic=0.15.0
+nbformat
+openpyxl
+openai
+langchain
+spacy
+langdetect
+top2vec[sentence_encoders]
+tensorflow 
+tensorflow_hub 
+tensorflow_text
