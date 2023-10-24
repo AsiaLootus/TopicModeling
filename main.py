@@ -63,7 +63,7 @@ def main(filename:str, method:str="bertopic"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Define command-line arguments
-    parser.add_argument('--filename', required=False, default=r'C:\Users\asiau\Desktop\cedolini\work\discovr\dscovr\datasets\json\1.json', help='Name of the json filename')
+    parser.add_argument('--filename', required=False, default=r"datasets\json\1.json', help='Name of the json filename')
     parser.add_argument('--n_clust', required=False, default="auto", help='Number of clusters to be used')
     # parser.add_argument('--method', required=False, default="bertopic", help='Method of clustering to be used')
 
