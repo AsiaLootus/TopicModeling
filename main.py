@@ -14,12 +14,13 @@ logger = logging.getLogger("my_logger")
 import argparse
 import json
 from typing import Optional, Dict, Union, List
+from decouple import Config
 
 from Preprocessor.base import Preprocessor
 from TopicExtractor.BERTopic import BERTopicExtractor
 from TopicExtractor.base import TopicExtractor
 from ClusterDistance.WCSS import WCSS
-
+from LabelAssignment.openai_assign import OpenAiAssign
 
 
 
@@ -31,10 +32,10 @@ def read_file(filename:str) -> Optional[Dict[str,str]]:
             try:
                 data = json.load(f)
             except Exception as e:
-                logger.exception("Can't jsonify " + filename + ". Exception: "+str(e))
+                logger.error("Can't jsonify " + filename + ". Exception: "+str(e))
                   
     except Exception as e:
-        logger.exception("Can't read " + filename + ". Exception: "+str(e))
+        logger.error("Can't read " + filename + ". Exception: "+str(e))
     
     return data 
 
@@ -49,8 +50,34 @@ def compute_topics(list_text:List[str], nr_topics:Union[int,str]="auto", topic_m
     df_input = pd.DataFrame({"text":list_text, "topic_id": topic_extractor.topics, "probs": topic_extractor.probs, "embedding": embeddings.tolist()})
     return topic_extractor, df_input
 
+def define_topic_labels(df_input:pd.DataFrame, question:str="", n_top:int=100):
+    labels = {}
+    label_ids = list(df_input.topic_id.unique())
+    chat = OpenAiAssign(question=question)
+    for l in label_ids:
+        if l != -1:
+            df_small = df_input[(df_input.topic_id == l) & (df_input.probs == 1)]
+            similarities = WCSS.compute_cosine_similarity(df_small)
+            df_small["similarities"] = similarities
+            df_small = df_small.sort_values("similarities", ascending=False)
+            df_small = df_small.iloc[:n_top]
+            
+            label = chat.compute_question(df_small.text.to_list())
+            labels[l] = label
+    return labels
 
-def main(filename:str, n_clust:str="auto", max_clust_num:int=26, plot_results:bool=False, method:str="bertopic"):
+def read_question(filename_question:str):
+    question = ""
+    if filename_question != "":
+        try:
+            with open(filename_question, "r") as q:
+                question = q.read()
+        except Exception as e:
+            logger.warning("Can't open question file")
+    return question
+
+
+def main(filename:str, filename_question:str="", n_clust:str="auto", max_clust_num:int=26, plot_results:bool=False, method:str="bertopic"):
     
     # read file
     data = read_file(filename)
@@ -75,7 +102,7 @@ def main(filename:str, n_clust:str="auto", max_clust_num:int=26, plot_results:bo
         topic_model = BERTopicExtractor
     
     if topic_model is None:
-        logger.exception("Method choosen not available. Available methods: bertopic")
+        logger.warning("Method choosen not available. Available methods: bertopic")
     
     # initialize model
     topic_extractor = None
@@ -83,6 +110,8 @@ def main(filename:str, n_clust:str="auto", max_clust_num:int=26, plot_results:bo
     
     if n_clust != 'compute':
         # compute using "auto" or predefined number of clusters
+        if not n_clust == "auto":
+            n_clust = int(n_clust) + 1
         topic_extractor, df_input = compute_topics(list_text, n_clust, topic_model=topic_model)
     
     else:
@@ -112,6 +141,12 @@ def main(filename:str, n_clust:str="auto", max_clust_num:int=26, plot_results:bo
         topic_extractor, df_input = compute_topics(list_text, optimal_num_clusters, topic_model=topic_model)
 
         logger.info(f"Numero ottimale di cluster: {optimal_num_clusters}")
+        
+    logger.info("Compute labels...")
+    question = read_question(filename_question)
+    labels = define_topic_labels(df_input, question)
+    
+    logger.info(f"topics: {labels}")
     
     if plot_results:
         # df_topic = topic_model.get_topic_info()
@@ -124,10 +159,11 @@ def main(filename:str, n_clust:str="auto", max_clust_num:int=26, plot_results:bo
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Define command-line arguments
-    parser.add_argument('--filename', required=False, default=r"datasets\json\1.json', help='Name of the json filename')
-    parser.add_argument('--n_clust', required=False, default="auto", help='Number of clusters to be used')
+    parser.add_argument('--filename', required=False, default=r"data\datasets\json\1.json", help='Name of the json dataset filename')
+    parser.add_argument('--filename_question', required=False, default=r"data\datasets\sq\1q.txt", help='Name of the question filename')
+    parser.add_argument('--n_clust', required=False, default="3", help='Number of clusters to be used')
     # parser.add_argument('--method', required=False, default="bertopic", help='Method of clustering to be used')
 
     args = parser.parse_args()
 
-    main(args.filename)# args.method)
+    main(args.filename, args.filename_question, n_clust=args.n_clust)# args.method)

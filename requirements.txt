@@ -9,3 +9,4 @@ top2vec[sentence_encoders]
 tensorflow 
 tensorflow_hub 
 tensorflow_text
+python-decouple

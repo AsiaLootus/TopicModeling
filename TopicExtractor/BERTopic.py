@@ -44,5 +44,5 @@ class BERTopicExtractor(TopicExtractor):
                                                 method="document",
                                                 verbose=self.topic_model.verbose)
 
-        umap_embeddings = self.topic_model._reduce_dimensionality(embeddings, None)
-        return umap_embeddings
+        # umap_embeddings = self.topic_model._reduce_dimensionality(embeddings, None)
+        return embeddings
