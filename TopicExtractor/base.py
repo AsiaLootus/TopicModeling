@@ -14,3 +14,7 @@ class TopicExtractor(ABC):
     @abstractmethod
     def transform_extractor():
         pass
+    
+    @abstractmethod
+    def compute_embeddings():
+        pass

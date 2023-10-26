@@ -36,7 +36,7 @@ class BERTopicExtractor(TopicExtractor):
         else:
             logging.info("Model not fitted, transform skipped")
         
-    def compute_embeddings(self, list_text:str) -> np.array:
+    def compute_embeddings(self, list_text:List[str]) -> np.array:
         self.topic_model.embedding_model = select_backend(self.topic_model.embedding_model,
                                                 language=self.topic_model.language)
         embeddings = self.topic_model._extract_embeddings(list_text,

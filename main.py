@@ -18,8 +18,11 @@ from decouple import Config
 
 from Preprocessor.base import Preprocessor
 from TopicExtractor.BERTopic import BERTopicExtractor
+from TopicExtractor.Top2Vec import Top2VecExtractor
 from TopicExtractor.base import TopicExtractor
 from ClusterDistance.WCSS import WCSS
+from ClusterDistance.Silhouette import Silhouette
+from ClusterDistance.DaviesBoulding import DaviesBoulding
 from LabelAssignment.openai_assign import OpenAiAssign
 
 
@@ -77,7 +80,14 @@ def read_question(filename_question:str):
     return question
 
 
-def main(filename:str, filename_question:str="", n_clust:str="auto", max_clust_num:int=26, plot_results:bool=False, method:str="bertopic"):
+def main(
+        filename:str, 
+        filename_question:str="", 
+        n_clust:str="auto", 
+        max_clust_num:int=26, 
+        plot_results:bool=False, 
+        method:str="bertopic",
+        num_clust_method:str="wcss"):
     
     # read file
     data = read_file(filename)
@@ -100,6 +110,8 @@ def main(filename:str, filename_question:str="", n_clust:str="auto", max_clust_n
     topic_model = None
     if method == "bertopic":
         topic_model = BERTopicExtractor
+    # elif method == "top2vec":
+    #     topic_model = Top2VecExtractor
     
     if topic_model is None:
         logger.warning("Method choosen not available. Available methods: bertopic")
@@ -113,34 +125,41 @@ def main(filename:str, filename_question:str="", n_clust:str="auto", max_clust_n
         if not n_clust == "auto":
             n_clust = int(n_clust) + 1
         topic_extractor, df_input = compute_topics(list_text, n_clust, topic_model=topic_model)
+        
+        optimal_num_clusters = len(df_input.topic_id.unique()) - 1 # tolgo il cluster -1
     
     else:
         # choose the best number of clusters
-        wcss_results = []
+        if num_clust_method == "wcss":
+            method_clust = WCSS
+        elif num_clust_method == "silhouette":
+            method_clust = Silhouette
+        elif num_clust_method == "davies_boulding":
+            method_clust = DaviesBoulding
+        
+        dist_results = []
         n_clusters_range = []
-        for n_c in range(2, max_clust_num, 2):
+        for n_c in range(3, max_clust_num, 1):
             n_clusters_range.append(n_c)
             logger.info(f"compute {n_c} clusters...")
             topic_extractor, df_input = compute_topics(list_text, n_c, topic_model=topic_model)
-            wcss = WCSS.calculate_wcss(df_input)
-            wcss_results.append(wcss)
+            if -1 in list(df_input.topic_id.unique()):
+                df_input = df_input[df_input.topic_id != -1]
+            distance = method_clust.calculate_distance(df_input)
+            dist_results.append(distance)
             
-            # clean space if cuda is available
+            # free space if cuda is available
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 gc.collect()
 
-        # Trova il punto di "gomito" nel grafico del WCSS
-        elbow_point = np.argmin(np.diff(wcss_results)) + 1  # Aggiungi 1 perché la differenza riduce la lunghezza di 1
-
-        # Il numero ottimale di cluster è dato dall'indice del punto di "gomito"
-        optimal_num_clusters = n_clusters_range[elbow_point - 1]
+        optimal_num_clusters = method_clust.get_best_clust_num(dist_results)
         
         # topic_extractor = topic_extractors[elbow_point - 1]
         # df_input = df_inputs[elbow_point - 1]
         topic_extractor, df_input = compute_topics(list_text, optimal_num_clusters, topic_model=topic_model)
 
-        logger.info(f"Numero ottimale di cluster: {optimal_num_clusters}")
+    logger.info(f"Numero ottimale di cluster: {optimal_num_clusters}")
         
     logger.info("Compute labels...")
     question = read_question(filename_question)
@@ -161,9 +180,10 @@ if __name__ == "__main__":
     # Define command-line arguments
     parser.add_argument('--filename', required=False, default=r"data\datasets\json\1.json", help='Name of the json dataset filename')
     parser.add_argument('--filename_question', required=False, default=r"data\datasets\sq\1q.txt", help='Name of the question filename')
-    parser.add_argument('--n_clust', required=False, default="3", help='Number of clusters to be used')
+    parser.add_argument('--n_clust', required=False, default="compute", help='Number of clusters to be used')
+    parser.add_argument('--num_clust_method', required=False, default="silhouette", help='Method used to compute the number of clusters to be used')
     # parser.add_argument('--method', required=False, default="bertopic", help='Method of clustering to be used')
 
     args = parser.parse_args()
 
-    main(args.filename, args.filename_question, n_clust=args.n_clust)# args.method)
+    main(args.filename, args.filename_question, n_clust=args.n_clust, num_clust_method=args.num_clust_method)# args.method)
