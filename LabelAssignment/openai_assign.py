@@ -6,7 +6,7 @@ from decouple import Config
 
 config = Config('.env')
 openai.api_key = config('OPENAI_KEY')
-print("openai key:", openai.api_key)
+# print("openai key:", openai.api_key)
 
 
 class OpenAiAssign():

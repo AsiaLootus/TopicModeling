@@ -25,6 +25,11 @@ from ClusterDistance.Silhouette import Silhouette
 from ClusterDistance.DaviesBoulding import DaviesBoulding
 from LabelAssignment.openai_assign import OpenAiAssign
 
+import random
+random.seed(42)
+
+import os
+
 
 
 def read_file(filename:str) -> Optional[Dict[str,str]]:
@@ -53,7 +58,7 @@ def compute_topics(list_text:List[str], nr_topics:Union[int,str]="auto", topic_m
     df_input = pd.DataFrame({"text":list_text, "topic_id": topic_extractor.topics, "probs": topic_extractor.probs, "embedding": embeddings.tolist()})
     return topic_extractor, df_input
 
-def define_topic_labels(df_input:pd.DataFrame, question:str="", n_top:int=100):
+def define_topic_labels(df_input:pd.DataFrame, question:str="", n_top:int=100) -> Dict[int,str]:
     labels = {}
     label_ids = list(df_input.topic_id.unique())
     chat = OpenAiAssign(question=question)
@@ -84,7 +89,7 @@ def main(
         filename:str, 
         filename_question:str="", 
         n_clust:str="auto", 
-        max_clust_num:int=26, 
+        # max_clust_num:int=26, 
         plot_results:bool=False, 
         method:str="bertopic",
         num_clust_method:str="wcss"):
@@ -137,9 +142,14 @@ def main(
         elif num_clust_method == "davies_boulding":
             method_clust = DaviesBoulding
         
+        topic_extractor, df_input = compute_topics(list_text, n_clust, topic_model=topic_model)
+        
+        max_clust_num = len(df_input.topic_id.unique()) 
+        
         dist_results = []
         n_clusters_range = []
-        for n_c in range(3, max_clust_num, 1):
+        min_clust = 3
+        for n_c in range(min_clust, max_clust_num, 1):
             n_clusters_range.append(n_c)
             logger.info(f"compute {n_c} clusters...")
             topic_extractor, df_input = compute_topics(list_text, n_c, topic_model=topic_model)
@@ -153,7 +163,7 @@ def main(
                 torch.cuda.empty_cache()
                 gc.collect()
 
-        optimal_num_clusters = method_clust.get_best_clust_num(dist_results)
+        optimal_num_clusters = method_clust.get_best_clust_num(dist_results) + min_clust
         
         # topic_extractor = topic_extractors[elbow_point - 1]
         # df_input = df_inputs[elbow_point - 1]
@@ -167,6 +177,10 @@ def main(
     
     logger.info(f"topics: {labels}")
     
+    name = filename.split(".")[0]
+    df_input.to_excel(f"output/output_{name}.xlsx")
+    pd.DataFrame(labels).to_excel(f"output/output_{name}_labels.xlsx")
+    
     if plot_results:
         # df_topic = topic_model.get_topic_info()
         fig3 = topic_extractor.topic_model.visualize_documents(list_text)
@@ -176,14 +190,27 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    # Define command-line arguments
-    parser.add_argument('--filename', required=False, default=r"data\datasets\json\1.json", help='Name of the json dataset filename')
-    parser.add_argument('--filename_question', required=False, default=r"data\datasets\sq\1q.txt", help='Name of the question filename')
-    parser.add_argument('--n_clust', required=False, default="compute", help='Number of clusters to be used')
-    parser.add_argument('--num_clust_method', required=False, default="silhouette", help='Method used to compute the number of clusters to be used')
+    config = Config('.env')
+    filename = config.get("FILENAME", default="")
+    filename_question = config.get("FILENAME_QUESTION", default="")
+    n_clust = config.get("N_CLUST", default="compute")
+    num_clust_method = config.get("N_CLUST_METHOD", default="silhouette") 
+    if filename == "":
+        logger.error("No FILENAME set in env file") 
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--filename', required=False, default=r"data\datasets\json\2.json", help='Name of the json dataset filename')
+    # parser.add_argument('--filename_question', required=False, default=r"data\datasets\sq\2q.txt", help='Name of the question filename')
+    # parser.add_argument('--n_clust', required=False, default="compute", help='Number of clusters to be used')
+    # parser.add_argument('--num_clust_method', required=False, default="silhouette", help='Method used to compute the number of clusters to be used')
     # parser.add_argument('--method', required=False, default="bertopic", help='Method of clustering to be used')
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    
+    # current_directory = os.getcwd()
+    # logger.info("Current working directory:"+ current_directory)
+    # files_and_directories = os.listdir()
 
-    main(args.filename, args.filename_question, n_clust=args.n_clust, num_clust_method=args.num_clust_method)# args.method)
+    # for item in files_and_directories:
+    #     logger.info(item)
+    else:
+        main(filename, filename_question, n_clust=n_clust, num_clust_method=num_clust_method)# args.method)

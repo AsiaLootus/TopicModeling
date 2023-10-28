@@ -1,4 +1,4 @@
-bertopic=0.15.0
+bertopic==0.15.0
 nbformat
 openpyxl
 openai
