@@ -3,11 +3,9 @@ from langchain.prompts import ChatPromptTemplate
 import os
 import openai
 from decouple import Config
-
-config = Config('.env')
-openai.api_key = config('OPENAI_KEY')
+import logging
+logger = logging.getLogger("my_logger")
 # print("openai key:", openai.api_key)
-
 
 class OpenAiAssign():
     
@@ -22,6 +20,10 @@ class OpenAiAssign():
                 temperature:float=0.0
                 ):
         # self.llm_model = llm_model
+        config = Config('.env')
+        openai.api_key = config.get('OPENAI_KEY')
+        logger.info(config.get('OPENAI_KEY'))
+        os.environ["OPENAI_API_KEY"] = config.get('OPENAI_KEY')
         self.question = question
         self.chat = ChatOpenAI(temperature=temperature, model=llm_model)
         self.prompt_template = ChatPromptTemplate.from_template(template)
