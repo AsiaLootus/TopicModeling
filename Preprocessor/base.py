@@ -9,10 +9,13 @@ class Preprocessor():
         list_text_ret = []
         for s in list_text:
             lang = Preprocessor._detect_lang(str(s))
-            if lang == "it":
+            if lang == "it" and len(str(s)) > 2:
                 list_text_ret.append(s)
-        return list_text_ret
+        return list(set(list_text_ret))
     
     @staticmethod
     def _detect_lang(s):
-        return detect(str(s))
+        try:
+            return detect(str(s))
+        except:
+            return ""

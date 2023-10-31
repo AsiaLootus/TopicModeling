@@ -8,7 +8,7 @@ logging.basicConfig(
     level=logging.INFO,  # (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("my_logger")
+logger = logging.getLogger("TopicModeling")
 
 
 import argparse
@@ -109,7 +109,7 @@ def main(
         plot_results:bool=False, 
         method:str="bertopic",
         num_clust_method:str="wcss", 
-        early_stopping:int=4,
+        early_stopping:int=6,
         language:str="italian"):
     
     # read file
@@ -159,6 +159,8 @@ def main(
             method_clust = Silhouette
         elif num_clust_method == "davies_boulding":
             method_clust = DaviesBoulding
+        else:
+            logging.error("num clust method selected is not correct. Method available: wcss, silhouette, davies_boulding")
         
         topic_extractor, df_input = compute_topics(list_text, n_clust, topic_model=topic_model)
         
@@ -184,7 +186,7 @@ def main(
                 gc.collect()
             
             # stop control number clust if optimal num cluster is the same for count_early iterations
-            if early_stopping > -1:
+            if early_stopping > -1 and len(dist_results) > 1:
                 optimal_num_clusters_tmp = method_clust.get_best_clust_num(dist_results)
                 if optimal_num_clusters_tmp == optimal_num_clusters:
                     count_early_stopping -= 1
@@ -199,7 +201,7 @@ def main(
         
         # topic_extractor = topic_extractors[elbow_point - 1]
         # df_input = df_inputs[elbow_point - 1]
-        topic_extractor, df_input = compute_topics(list_text, optimal_num_clusters, topic_model=topic_model, language=language)
+        topic_extractor, df_input = compute_topics(list_text, int(optimal_num_clusters), topic_model=topic_model)
 
     logger.info(f"Numero ottimale di cluster: {optimal_num_clusters}")
         
@@ -219,8 +221,6 @@ def main(
         fig3 = topic_extractor.topic_model.visualize_documents(list_text)
         fig3.show()
         
-
-
 
 if __name__ == "__main__":
     config = Config('.env')

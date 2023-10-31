@@ -31,5 +31,5 @@ class WCSS():
         elbow_point = np.argmin(np.diff(wcss_results)) + 1  # Aggiungi 1 perché la differenza riduce la lunghezza di 1
 
         # Il numero ottimale di cluster è dato dall'indice del punto di "gomito"
-        optimal_num_clusters = n_clusters_range[elbow_point - 1]
-        return optimal_num_clusters
+        # optimal_num_clusters = n_clusters_range[elbow_point - 1]
+        return int(elbow_point) - 1

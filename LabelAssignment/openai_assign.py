@@ -4,7 +4,7 @@ import os
 import openai
 from decouple import Config
 import logging
-logger = logging.getLogger("my_logger")
+logger = logging.getLogger("TopicModeling")
 # print("openai key:", openai.api_key)
 
 class OpenAiAssign():
@@ -25,14 +25,28 @@ class OpenAiAssign():
         logger.info(config.get('OPENAI_KEY'))
         os.environ["OPENAI_API_KEY"] = config.get('OPENAI_KEY')
         self.question = question
-        self.chat = ChatOpenAI(temperature=temperature, model=llm_model)
+        self.chat = ChatOpenAI(temperature=temperature, model=llm_model, request_timeout=30)
         self.prompt_template = ChatPromptTemplate.from_template(template)
+        
+    def _call_api(self, texts_concat:str):
+        customer_messages = self.prompt_template.format_messages(
+                                question=self.question,
+                                text=texts_concat)
+        customer_response = self.chat(customer_messages)
+        return customer_response
     
     def compute_question(self, texts_concat:str):
-        customer_messages = self.prompt_template.format_messages(
-                            question=self.question,
-                            text=texts_concat)
-        customer_response = self.chat(customer_messages)
-        return customer_response.content
+        customer_response = None
+        try:
+            customer_response = self._call_api(texts_concat)
+        except Exception as e:
+            logger.exception(e)
+        if customer_response != None:    
+            tt = customer_response.content
+            if tt[0] == '"':
+                tt = tt[1:-2]
+            return tt
+        else:
+            return ""
     
     
