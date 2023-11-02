@@ -13,7 +13,7 @@ logger = logging.getLogger("TopicModeling")
 
 import argparse
 import json
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, Union, List, Tuple
 from decouple import Config
 
 from Preprocessor.base import Preprocessor
@@ -47,7 +47,7 @@ def read_file(filename:str) -> Optional[Dict[str,str]]:
     
     return data 
 
-def compute_topics(list_text:List[str], nr_topics:Union[int,str]="auto", topic_model:TopicExtractor=BERTopicExtractor):
+def compute_topics(list_text:List[str], nr_topics:Union[int,str]="auto", topic_model:TopicExtractor=BERTopicExtractor) -> Tuple[TopicExtractor, pd.DataFrame]:
     logger.info("start topic extraction...")
     # initialize and fit the preprocessor
     topic_extractor = topic_model(nr_topics=nr_topics,  language=language)
@@ -90,7 +90,7 @@ def define_topic_labels(df_input:pd.DataFrame, question:str="", language:str = "
             labels[l] = label
     return labels
 
-def read_question(filename_question:str):
+def read_question(filename_question:str) -> str:
     question = ""
     if filename_question != "":
         try:
@@ -152,6 +152,7 @@ def main(
         optimal_num_clusters = len(df_input.topic_id.unique()) - 1 # tolgo il cluster -1
     
     else:
+        method_clust = None
         # choose the best number of clusters
         if num_clust_method == "wcss":
             method_clust = WCSS
@@ -161,7 +162,7 @@ def main(
             method_clust = DaviesBoulding
         else:
             logging.error("num clust method selected is not correct. Method available: wcss, silhouette, davies_boulding")
-        
+            return
         topic_extractor, df_input = compute_topics(list_text, n_clust, topic_model=topic_model)
         
         max_clust_num = len(df_input.topic_id.unique()) 
@@ -226,11 +227,16 @@ if __name__ == "__main__":
     config = Config('.env')
     filename = config.get("FILENAME", default="")
     filename_question = config.get("FILENAME_QUESTION", default="")
-    n_clust = config.get("N_CLUST", default="compute")
-    num_clust_method = config.get("N_CLUST_METHOD", default="silhouette") 
+    n_clust = config.get("N_CLUST", default="auto")
+    num_clust_method = config.get("N_CLUST_METHOD", default="wcss") 
     language = config.get("LANGUAGE", default="italian") 
+    early_stopping = config.get("EARLY_STOPPING", default="6") 
+    api_key = config.get('OPENAI_KEY', default="")
+    plot_results = config.get('PLOT_RESULTS', default="False")
     if filename == "":
         logger.error("No FILENAME set in env file") 
+    elif api_key == "":
+        logger.error("No OPENAI_KEY set in env file") 
     # parser = argparse.ArgumentParser()
     # parser.add_argument('--filename', required=False, default=r"data\datasets\json\2.json", help='Name of the json dataset filename')
     # parser.add_argument('--filename_question', required=False, default=r"data\datasets\sq\2q.txt", help='Name of the question filename')
@@ -247,4 +253,11 @@ if __name__ == "__main__":
     # for item in files_and_directories:
     #     logger.info(item)
     else:
-        main(filename, filename_question, n_clust=n_clust, num_clust_method=num_clust_method, language=language)# args.method)
+        main(
+            filename, 
+            filename_question, 
+            n_clust=n_clust, 
+            num_clust_method=num_clust_method, 
+            language=language,
+            early_stopping=int(early_stopping),
+            plot_results=True if plot_results=="True" else False)# args.method)
