@@ -214,8 +214,8 @@ def main(
     
     _, name = os.path.split(filename)
     name = name.split(".")[0]
-    df_input.to_excel(f"output/output_{name}.xlsx")
-    pd.DataFrame({"topic_id":labels.keys(), "labels":labels.values()}).to_excel(f"output/output_{name}_labels.xlsx")
+    df_input.to_csv(f"output/output_{name}.csv")
+    pd.DataFrame({"topic_id":labels.keys(), "labels":labels.values()}).to_csv(f"output/output_{name}_labels.csv")
     
     if plot_results:
         # df_topic = topic_model.get_topic_info()
