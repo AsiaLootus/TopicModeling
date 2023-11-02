@@ -79,7 +79,7 @@ Come prima cosa, generare l'immagine:
 
 Infine eseguire il container:
 
-```docker run -d --name topic_container --env-file .env -v output:/usr/src/TopicExtractor/output topic_extract```
+```docker run -d --name topic_container --env-file .env -v [output_directory]:/usr/src/TopicExtractor/output topic_extract```
 
 E' possibile visualizzare i log con il comando:
 
